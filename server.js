@@ -5,6 +5,7 @@ const multer = require("multer");
 const path = require("path");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const User = require("./models/User");
 
 const app = express();
 
@@ -31,36 +32,6 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
-
-/* =========================
-   USER MODEL
-========================= */
-const userSchema = new mongoose.Schema(
-  {
-    name: String,
-    email: String,
-    password: String,
-
-    age: Number,
-    location: String,
-    image: String,
-
-    gender: String,
-    dob: String,
-
-    education: String,
-    job: String,
-    income: String,
-
-    religion: String,
-    caste: String,
-
-    interested: { type: Boolean, default: false }
-  },
-  { timestamps: true }
-);
-
-const User = mongoose.model("User", userSchema);
 
 /* =========================
    AUTH ROUTES
