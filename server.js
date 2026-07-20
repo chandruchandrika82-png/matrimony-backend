@@ -226,6 +226,28 @@ app.get("/api/users", async (req, res) => {
 });
 
 /* =========================
+   GET SINGLE USER
+========================= */
+app.get("/api/users/:id", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({
+        error: "User not found"
+      });
+    }
+
+    res.json(user);
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+/* =========================
    CREATE USER (WITH IMAGE)
 ========================= */
 app.post("/api/users", upload.single("image"), async (req, res) => {
@@ -254,6 +276,41 @@ app.post("/api/users", upload.single("image"), async (req, res) => {
       error: err.message
     });
 
+  }
+});
+
+/* =========================
+   UPDATE USER
+========================= */
+app.put("/api/users/:id", upload.single("image"), async (req, res) => {
+  try {
+
+    const updateData = {
+      ...req.body
+    };
+
+    if (req.file) {
+      updateData.image = `/uploads/${req.file.filename}`;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        error: "User not found"
+      });
+    }
+
+    res.json(updatedUser);
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message
+    });
   }
 });
 /* =========================
