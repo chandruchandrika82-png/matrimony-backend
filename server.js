@@ -93,13 +93,14 @@ app.post("/api/register", async (req, res) => {
       user
     });
 
-  } catch (err) {
+  } 
+  catch (err) {
+  console.log("SERVER ERROR:", err);
 
-    res.status(500).json({
-      error: err.message
-    });
-
-  }
+  res.status(500).json({
+    error: err.message
+  });
+}
 });
 
 // LOGIN
@@ -150,13 +151,14 @@ app.post("/api/login", async (req, res) => {
       user
     });
 
-  } catch (err) {
+  } 
+  catch (err) {
+  console.log("SERVER ERROR:", err);
 
-    res.status(500).json({
-      error: err.message
-    });
-
-  }
+  res.status(500).json({
+    error: err.message
+  });
+}
 
 });
 
@@ -191,9 +193,14 @@ app.get("/api/users", async (req, res) => {
     const users = await User.find(filter).sort({ createdAt: -1 });
 
     res.json(users);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } 
+  catch (err) {
+  console.log("SERVER ERROR:", err);
+
+  res.status(500).json({
+    error: err.message
+  });
+}
 });
 
 /* =========================
@@ -211,18 +218,29 @@ app.get("/api/users/:id", async (req, res) => {
 
     res.json(user);
 
-  } catch (err) {
-    res.status(500).json({
-      error: err.message
-    });
-  }
+  } 
+  catch (err) {
+  console.log("SERVER ERROR:", err);
+
+  res.status(500).json({
+    error: err.message
+  });
+}
 });
 
 /* =========================
    CREATE USER (WITH IMAGE)
 ========================= */
-app.post("/api/users", upload.single("image"), async (req, res) => {
-  try {
+app.post(
+  "/api/users",
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "profilePhotos", maxCount: 10 },
+    { name: "familyPhotos", maxCount: 10 },
+    { name: "officePhotos", maxCount: 10 }
+  ]),
+  async (req, res) => {
+      try {
 
     const hashedPassword = await bcrypt.hash(
       req.body.password,
@@ -230,60 +248,120 @@ app.post("/api/users", upload.single("image"), async (req, res) => {
     );
 
     const user = new User({
-      ...req.body,
-      password: hashedPassword,
-      image: req.file
-        ? `/uploads/${req.file.filename}`
-        : ""
-    });
+  ...req.body,
+  password: hashedPassword,
+
+  image: req.files?.image?.[0]
+    ? `/uploads/${req.files.image[0].filename}`
+    : "",
+
+  profilePhotos:
+    req.files?.profilePhotos?.map(
+      file => `/uploads/${file.filename}`
+    ) || [],
+
+  familyPhotos:
+    req.files?.familyPhotos?.map(
+      file => `/uploads/${file.filename}`
+    ) || [],
+
+  officePhotos:
+    req.files?.officePhotos?.map(
+      file => `/uploads/${file.filename}`
+    ) || []
+});
 
     await user.save();
 
     res.json(user);
 
-  } catch (err) {
+  } 
+  catch (err) {
+  console.log("SERVER ERROR:", err);
 
-    res.status(500).json({
-      error: err.message
-    });
-
-  }
+  res.status(500).json({
+    error: err.message
+  });
+}
 });
 
 /* =========================
    UPDATE USER
 ========================= */
-app.put("/api/users/:id", upload.single("image"), async (req, res) => {
-  try {
+app.put(
+  "/api/users/:id",
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "profilePhotos", maxCount: 10 },
+    { name: "familyPhotos", maxCount: 10 },
+    { name: "officePhotos", maxCount: 10 }
+  ]),
+  async (req, res) => {
+    try {
+      console.log("BODY:", req.body);
+      console.log("FILES:", req.files);
 
-    const updateData = {
-      ...req.body
-    };
+      const updateData = {
+        ...req.body
+      };
 
-    if (req.file) {
-      updateData.image = `/uploads/${req.file.filename}`;
-    }
+      // Main Profile Image
+      if (req.files?.image?.[0]) {
+        updateData.image = `/uploads/${req.files.image[0].filename}`;
+      }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true }
-    );
+      // Profile Photos
+      if (req.files?.profilePhotos) {
+        updateData.profilePhotos = req.files.profilePhotos.map(
+          (file) => `/uploads/${file.filename}`
+        );
+      }
 
-    if (!updatedUser) {
-      return res.status(404).json({
-        error: "User not found"
-      });
-    }
+      // Family Photos
+      if (req.files?.familyPhotos) {
+        updateData.familyPhotos = req.files.familyPhotos.map(
+          (file) => `/uploads/${file.filename}`
+        );
+      }
 
-    res.json(updatedUser);
+      // Office Photos
+      if (req.files?.officePhotos) {
+        updateData.officePhotos = req.files.officePhotos.map(
+          (file) => `/uploads/${file.filename}`
+        );
+      }
 
-  } catch (err) {
-    res.status(500).json({
-      error: err.message
-    });
+      const updatedUser = await User.findByIdAndUpdate(
+        req.params.id,
+        updateData,
+        { new: true }
+      );
+
+      if (!updatedUser) {
+        return res.status(404).json({
+          error: "User not found"
+        });
+      }
+
+      res.json(updatedUser);
+
+    } catch (err) {
+
+  console.log("========== ERROR ==========");
+  console.log(err);
+  console.log("MESSAGE:", err.message);
+  console.log("FIELD:", err.field);
+  console.log("FILES:", req.files);
+  console.log("===========================");
+
+  res.status(500).json({
+    error: err.message,
+    field: err.field
+  });
+
+}
   }
-});
+);
 /* =========================
    TOGGLE INTEREST
 ========================= */
@@ -295,9 +373,14 @@ app.put("/api/users/:id/toggle", async (req, res) => {
     await user.save();
 
     res.json(user);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } 
+  catch (err) {
+  console.log("SERVER ERROR:", err);
+
+  res.status(500).json({
+    error: err.message
+  });
+}
 });
 
 /* =========================

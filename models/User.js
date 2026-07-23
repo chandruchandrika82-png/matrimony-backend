@@ -16,6 +16,11 @@ const userSchema = new mongoose.Schema(
     // Personal
     nativePlace: String,
     currentCity: String,
+    height: String,
+    weight: String,
+    district: String,
+    maritalStatus: String,
+
 
     // Career
     education: String,
@@ -28,6 +33,11 @@ const userSchema = new mongoose.Schema(
     businessLocation: String,
     businessWebsite: String,
     socialMedia: String,
+    businessCategory: String,
+    yearsInBusiness: String,
+    numberOfEmployees: String,
+    branchLocations: String,
+    occupationType: String,
 
     // Religion
     religion: String,
@@ -46,6 +56,7 @@ const userSchema = new mongoose.Schema(
     motherName: String,
     siblings: String,
     siblingsStatus: String,
+    siblingAge: String,
 
     // Others
     languages: String,
