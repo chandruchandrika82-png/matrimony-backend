@@ -19,6 +19,8 @@ const userSchema = new mongoose.Schema(
     height: String,
     weight: String,
     district: String,
+    state: String,
+    country: String,
     maritalStatus: String,
 
 
@@ -50,13 +52,46 @@ const userSchema = new mongoose.Schema(
     rashi: String,
     gothram: String,
     dosha: String,
-
+    birthTime: String,
+    birthPlace: String,
+    horoscopeFile: String,
+   
     // Family
-    fatherName: String,
-    motherName: String,
-    siblings: String,
-    siblingsStatus: String,
-    siblingAge: String,
+
+   fatherName: String,
+fatherOccupation: String,
+
+motherName: String,
+motherOccupation: String,
+
+brothersCount: Number,
+brothersMarried: Number,
+
+sistersCount: Number,
+sistersMarried: Number,
+
+familyType: String,
+familyStatus: String,
+
+// Partner Preference
+
+preferredAgeFrom: Number,
+preferredAgeTo: Number,
+preferredHeight: String,
+preferredEducation: String,
+preferredOccupation: String,
+preferredReligion: String,
+preferredCaste: String,
+preferredLocation: String,
+
+// Assets
+
+landAcres: String,
+landValue: String,
+house: String,
+vehicle: String,
+otherAssets: String,
+
 
     // Others
     languages: String,
@@ -64,10 +99,11 @@ const userSchema = new mongoose.Schema(
     expectations: String,
     lands: String,
 
-    phone: String,
+   
     address: String,
 
     registerAs: String,
+
 
     // Photos
     profilePhotos: [String],
@@ -76,7 +112,7 @@ const userSchema = new mongoose.Schema(
 
     image: String,
 
-    // Verification
+        // Verification
     gstVerified: {
       type: Boolean,
       default: false
@@ -87,10 +123,79 @@ const userSchema = new mongoose.Schema(
       default: false
     },
 
-    interested: {
+    interestRequests: [
+  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  }
+],
+
+acceptedRequests: [
+  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  }
+],
+
+    // Privacy
+    hideMobile: {
       type: Boolean,
       default: false
-    }
+    },
+
+    hideIncome: {
+      type: Boolean,
+      default: false
+    },
+
+    hideCompany: {
+      type: Boolean,
+      default: false
+    },
+
+    hidePhotos: {
+      type: Boolean,
+      default: false
+    },
+
+    profileVisibility: {
+      type: String,
+      default: "Public"
+    },
+
+  // Premium Account
+isPremium: {
+  type: Boolean,
+  default: false
+},
+
+// Interest Requests
+interestRequests: [
+  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  }
+],
+
+acceptedRequests: [
+  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  }
+],
+
+// Block & Report
+blockedUsers: [
+  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  }
+],
+
+reportedCount: {
+  type: Number,
+  default: 0
+}
   },
   {
     timestamps: true

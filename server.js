@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
@@ -6,8 +7,15 @@ const path = require("path");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const User = require("./models/User");
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
 const app = express();
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 app.use(cors());
 app.use(express.json());
@@ -25,10 +33,12 @@ mongoose.connect(
 /* =========================
    IMAGE UPLOAD SETUP
 ========================= */
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/"),
-  filename: (req, file, cb) =>
-    cb(null, Date.now() + path.extname(file.originalname))
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "matrimony",
+    allowed_formats: ["jpg", "jpeg", "png", "webp"],
+  },
 });
 
 const upload = multer({ storage });
@@ -240,6 +250,8 @@ app.post(
     { name: "officePhotos", maxCount: 10 }
   ]),
   async (req, res) => {
+    console.log("FILES:", req.files);
+    console.log("BODY:", req.body);
       try {
 
     const hashedPassword = await bcrypt.hash(
@@ -252,23 +264,23 @@ app.post(
   password: hashedPassword,
 
   image: req.files?.image?.[0]
-    ? `/uploads/${req.files.image[0].filename}`
-    : "",
+  ? req.files.image[0].path
+  : "",
 
   profilePhotos:
-    req.files?.profilePhotos?.map(
-      file => `/uploads/${file.filename}`
-    ) || [],
+  req.files?.profilePhotos?.map(
+    file => file.path
+  ) || [],
 
   familyPhotos:
-    req.files?.familyPhotos?.map(
-      file => `/uploads/${file.filename}`
-    ) || [],
+  req.files?.familyPhotos?.map(
+    file => file.path
+  ) || [],
 
   officePhotos:
-    req.files?.officePhotos?.map(
-      file => `/uploads/${file.filename}`
-    ) || []
+  req.files?.officePhotos?.map(
+    file => file.path
+  ) || [],
 });
 
     await user.save();
@@ -305,30 +317,31 @@ app.put(
         ...req.body
       };
 
-      // Main Profile Image
-      if (req.files?.image?.[0]) {
-        updateData.image = `/uploads/${req.files.image[0].filename}`;
-      }
+     // Main Profile Image
+if (req.files?.image?.[0]) {
+  updateData.image = req.files.image[0].path;
+}
 
-      // Profile Photos
-      if (req.files?.profilePhotos) {
-        updateData.profilePhotos = req.files.profilePhotos.map(
-          (file) => `/uploads/${file.filename}`
-        );
-      }
+// Profile Photos
+if (req.files?.profilePhotos) {
+  updateData.profilePhotos = req.files.profilePhotos.map(
+    (file) => file.path
+  );
+}
 
-      // Family Photos
-      if (req.files?.familyPhotos) {
-        updateData.familyPhotos = req.files.familyPhotos.map(
-          (file) => `/uploads/${file.filename}`
-        );
-      }
+// Family Photos
+if (req.files?.familyPhotos) {
+  updateData.familyPhotos = req.files.familyPhotos.map(
+    (file) => file.path
+  );
+}
 
-      // Office Photos
-      if (req.files?.officePhotos) {
-        updateData.officePhotos = req.files.officePhotos.map(
-          (file) => `/uploads/${file.filename}`
-        );
+// Office Photos
+if (req.files?.officePhotos) {
+  updateData.officePhotos = req.files.officePhotos.map(
+    (file) => file.path
+  );
+
       }
 
       const updatedUser = await User.findByIdAndUpdate(
@@ -363,24 +376,170 @@ app.put(
   }
 );
 /* =========================
-   TOGGLE INTEREST
+   SEND INTEREST REQUEST
 ========================= */
-app.put("/api/users/:id/toggle", async (req, res) => {
+app.put("/api/users/:receiverId/interest/:senderId", async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
 
-    user.interested = !user.interested;
+    const { receiverId, senderId } = req.params;
+
+    const receiver = await User.findById(receiverId);
+
+    if (!receiver) {
+      return res.status(404).json({
+        error: "Receiver not found"
+      });
+    }
+
+    if (!receiver.interestRequests.includes(senderId)) {
+      receiver.interestRequests.push(senderId);
+      await receiver.save();
+    }
+
+    res.json({
+      message: "Interest request sent successfully."
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+/* =========================
+   ACCEPT INTEREST REQUEST
+========================= */
+app.put("/api/users/:userId/accept/:senderId", async (req, res) => {
+  try {
+
+    const { userId, senderId } = req.params;
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        error: "User not found"
+      });
+    }
+
+    // Remove from pending requests
+    user.interestRequests = user.interestRequests.filter(
+      id => id.toString() !== senderId
+    );
+
+    // Add to accepted list
+    if (!user.acceptedRequests.includes(senderId)) {
+      user.acceptedRequests.push(senderId);
+    }
+
     await user.save();
 
-    res.json(user);
-  } 
-  catch (err) {
-  console.log("SERVER ERROR:", err);
+    res.json({
+      message: "Interest accepted successfully.",
+      acceptedRequests: user.acceptedRequests
+    });
 
-  res.status(500).json({
-    error: err.message
-  });
-}
+  } catch (err) {
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+/* =========================
+   REJECT INTEREST REQUEST
+========================= */
+app.put("/api/users/:userId/reject/:senderId", async (req, res) => {
+  try {
+
+    const { userId, senderId } = req.params;
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        error: "User not found"
+      });
+    }
+
+    user.interestRequests = user.interestRequests.filter(
+      id => id.toString() !== senderId
+    );
+
+    await user.save();
+
+    res.json({
+      message: "Interest rejected."
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+/* =========================
+   BLOCK USER
+========================= */
+app.put("/api/users/:id/block/:blockId", async (req, res) => {
+  try {
+    const { id, blockId } = req.params;
+
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({
+        error: "User not found"
+      });
+    }
+
+    if (!user.blockedUsers.includes(blockId)) {
+      user.blockedUsers.push(blockId);
+      await user.save();
+    }
+
+    res.json({
+      message: "User blocked successfully",
+      blockedUsers: user.blockedUsers
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+/* =========================
+   REPORT USER
+========================= */
+app.put("/api/users/:id/report", async (req, res) => {
+  try {
+
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({
+        error: "User not found"
+      });
+    }
+
+    user.reportedCount += 1;
+
+    await user.save();
+
+    res.json({
+      message: "Profile reported successfully",
+      reportedCount: user.reportedCount
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message
+    });
+  }
 });
 
 /* =========================
