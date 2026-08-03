@@ -1,4 +1,5 @@
 require("dotenv").config();
+console.log("🔥 MY SERVER.JS IS RUNNING 🔥");
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
@@ -10,7 +11,11 @@ const User = require("./models/User");
 const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
+
 const app = express();
+app.get("/test", (req, res) => {
+  res.send("SERVER IS WORKING");
+});
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -176,6 +181,8 @@ app.post("/api/login", async (req, res) => {
    GET USERS + FILTER API
 ========================= */
 app.get("/api/users", async (req, res) => {
+  console.log("✅ GET /api/users HIT");
+
   try {
     const { name, minAge, maxAge, location, religion } = req.query;
 
@@ -196,23 +203,18 @@ app.get("/api/users", async (req, res) => {
     if (minAge && maxAge) {
       filter.age = {
         $gte: Number(minAge),
-        $lte: Number(maxAge)
+        $lte: Number(maxAge),
       };
     }
 
     const users = await User.find(filter).sort({ createdAt: -1 });
 
     res.json(users);
-  } 
-  catch (err) {
-  console.log("SERVER ERROR:", err);
-
-  res.status(500).json({
-    error: err.message
-  });
-}
+  } catch (err) {
+    console.log("SERVER ERROR:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
-
 /* =========================
    GET SINGLE USER
 ========================= */
@@ -226,16 +228,19 @@ app.get("/api/users/:id", async (req, res) => {
       });
     }
 
+    console.log("========== USER FROM DB ==========");
+    console.dir(user.toObject(), { depth: null });
+    console.log("==================================");
+
     res.json(user);
 
-  } 
-  catch (err) {
-  console.log("SERVER ERROR:", err);
+  } catch (err) {
+    console.log("SERVER ERROR:", err);
 
-  res.status(500).json({
-    error: err.message
-  });
-}
+    res.status(500).json({
+      error: err.message
+    });
+  }
 });
 
 /* =========================
@@ -300,6 +305,8 @@ app.post(
 /* =========================
    UPDATE USER
 ========================= */
+console.log("✅ UPDATE ROUTE REGISTERED");
+
 app.put(
   "/api/users/:id",
   upload.fields([
@@ -310,44 +317,59 @@ app.put(
   ]),
   async (req, res) => {
     try {
-      console.log("BODY:", req.body);
-      console.log("FILES:", req.files);
 
-      const updateData = {
-        ...req.body
-      };
+      console.log("BODY:");
+      console.dir(req.body, { depth: null });
 
-     // Main Profile Image
-if (req.files?.image?.[0]) {
-  updateData.image = req.files.image[0].path;
-}
+      const updateData = { ...req.body };
+      console.log("========== UPDATE DATA ==========");
+Object.keys(updateData).forEach((key) => {
+  console.log(key, "=>", updateData[key]);
+});
+console.log("=================================");
 
-// Profile Photos
-if (req.files?.profilePhotos) {
-  updateData.profilePhotos = req.files.profilePhotos.map(
-    (file) => file.path
-  );
-}
+      // Remove fields that should NEVER come from frontend
+      delete updateData.interestRequests;
+      delete updateData.acceptedRequests;
+      delete updateData.blockedUsers;
+      delete updateData.createdAt;
+      delete updateData.updatedAt;
+      delete updateData.__v;
+      delete updateData.password;
 
-// Family Photos
-if (req.files?.familyPhotos) {
-  updateData.familyPhotos = req.files.familyPhotos.map(
-    (file) => file.path
-  );
-}
-
-// Office Photos
-if (req.files?.officePhotos) {
-  updateData.officePhotos = req.files.officePhotos.map(
-    (file) => file.path
-  );
-
+      // Main image
+      if (req.files?.image?.[0]) {
+        updateData.image = req.files.image[0].path;
       }
+
+      // Profile photos
+      if (req.files?.profilePhotos) {
+        updateData.profilePhotos =
+          req.files.profilePhotos.map(file => file.path);
+      }
+
+      // Family photos
+      if (req.files?.familyPhotos) {
+        updateData.familyPhotos =
+          req.files.familyPhotos.map(file => file.path);
+      }
+
+      // Office photos
+      if (req.files?.officePhotos) {
+        updateData.officePhotos =
+          req.files.officePhotos.map(file => file.path);
+      }
+
+      console.log("UPDATE DATA:");
+      console.dir(updateData, { depth: null });
 
       const updatedUser = await User.findByIdAndUpdate(
         req.params.id,
         updateData,
-        { new: true }
+        {
+          new: true,
+          runValidators: true
+        }
       );
 
       if (!updatedUser) {
@@ -360,19 +382,15 @@ if (req.files?.officePhotos) {
 
     } catch (err) {
 
-  console.log("========== ERROR ==========");
-  console.log(err);
-  console.log("MESSAGE:", err.message);
-  console.log("FIELD:", err.field);
-  console.log("FILES:", req.files);
-  console.log("===========================");
+      console.log("========== UPDATE ERROR ==========");
+      console.log(err);
+      console.log("==================================");
 
-  res.status(500).json({
-    error: err.message,
-    field: err.field
-  });
+      res.status(500).json({
+        error: err.message
+      });
 
-}
+    }
   }
 );
 /* =========================

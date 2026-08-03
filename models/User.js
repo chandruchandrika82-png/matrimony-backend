@@ -23,11 +23,10 @@ const userSchema = new mongoose.Schema(
     country: String,
     maritalStatus: String,
 
-
     // Career
     education: String,
     occupation: String,
-    nri: String,
+    occupationType: String,
 
     companyName: String,
     businessType: String,
@@ -35,11 +34,13 @@ const userSchema = new mongoose.Schema(
     businessLocation: String,
     businessWebsite: String,
     socialMedia: String,
+
     businessCategory: String,
     yearsInBusiness: String,
     numberOfEmployees: String,
     branchLocations: String,
-    occupationType: String,
+
+    nri: String,
 
     // Religion
     religion: String,
@@ -55,150 +56,127 @@ const userSchema = new mongoose.Schema(
     birthTime: String,
     birthPlace: String,
     horoscopeFile: String,
-   
+
     // Family
+    fatherName: String,
+    fatherOccupation: String,
 
-   fatherName: String,
-fatherOccupation: String,
+    motherName: String,
+    motherOccupation: String,
 
-motherName: String,
-motherOccupation: String,
+    brothersCount: Number,
+    brothersMarried: Number,
 
-brothersCount: Number,
-brothersMarried: Number,
+    sistersCount: Number,
+    sistersMarried: Number,
 
-sistersCount: Number,
-sistersMarried: Number,
+    familyType: String,
+    familyStatus: String,
 
-familyType: String,
-familyStatus: String,
+    // Partner Preference
+    preferredAgeFrom: Number,
+    preferredAgeTo: Number,
+    preferredHeight: String,
+    preferredEducation: String,
+    preferredOccupation: String,
+    preferredReligion: String,
+    preferredCaste: String,
+    preferredLocation: String,
 
-// Partner Preference
-
-preferredAgeFrom: Number,
-preferredAgeTo: Number,
-preferredHeight: String,
-preferredEducation: String,
-preferredOccupation: String,
-preferredReligion: String,
-preferredCaste: String,
-preferredLocation: String,
-
-// Assets
-
-landAcres: String,
-landValue: String,
-house: String,
-vehicle: String,
-otherAssets: String,
-
+    // Assets
+    landAcres: String,
+    landValue: String,
+    house: String,
+    vehicle: String,
+    otherAssets: String,
 
     // Others
     languages: String,
     hobbies: String,
     expectations: String,
     lands: String,
-
-   
     address: String,
-
     registerAs: String,
 
-
     // Photos
+    image: String,
     profilePhotos: [String],
     familyPhotos: [String],
     officePhotos: [String],
 
-    image: String,
-
-        // Verification
+    // Verification
     gstVerified: {
       type: Boolean,
-      default: false
+      default: false,
     },
 
     businessVerified: {
       type: Boolean,
-      default: false
+      default: false,
     },
-
-    interestRequests: [
-  {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User"
-  }
-],
-
-acceptedRequests: [
-  {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User"
-  }
-],
 
     // Privacy
     hideMobile: {
       type: Boolean,
-      default: false
+      default: false,
     },
 
     hideIncome: {
       type: Boolean,
-      default: false
+      default: false,
     },
 
     hideCompany: {
       type: Boolean,
-      default: false
+      default: false,
     },
 
     hidePhotos: {
       type: Boolean,
-      default: false
+      default: false,
     },
 
     profileVisibility: {
       type: String,
-      default: "Public"
+      default: "Public",
     },
 
-  // Premium Account
-isPremium: {
-  type: Boolean,
-  default: false
-},
+    // Premium
+    isPremium: {
+      type: Boolean,
+      default: false,
+    },
 
-// Interest Requests
-interestRequests: [
-  {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User"
-  }
-],
+    // Interest System
+    interestRequests: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
 
-acceptedRequests: [
-  {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User"
-  }
-],
+    acceptedRequests: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
 
-// Block & Report
-blockedUsers: [
-  {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User"
-  }
-],
+    // Block & Report
+    blockedUsers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
 
-reportedCount: {
-  type: Number,
-  default: 0
-}
+    reportedCount: {
+      type: Number,
+      default: 0,
+    },
   },
   {
-    timestamps: true
+    timestamps: true,
   }
 );
 

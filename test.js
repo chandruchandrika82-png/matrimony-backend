@@ -1,0 +1,15 @@
+const express = require("express");
+
+const app = express();
+
+app.get("/", (req, res) => {
+  res.send("Backend Working");
+});
+
+app.get("/test", (req, res) => {
+  res.send("TEST OK");
+});
+
+app.listen(5000, () => {
+  console.log("Server Started");
+});
