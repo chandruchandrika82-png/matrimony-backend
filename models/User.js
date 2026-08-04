@@ -2,62 +2,93 @@ const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
+    // ==========================
     // Authentication
+    // ==========================
     name: String,
     email: String,
     password: String,
 
+    // ==========================
     // Basic Details
+    // ==========================
     mobile: String,
     age: Number,
     gender: String,
     dob: String,
 
-    // Personal
     nativePlace: String,
     currentCity: String,
-    height: String,
-    weight: String,
     district: String,
     state: String,
     country: String,
+
+    height: String,
+    weight: String,
+
     maritalStatus: String,
 
+    // ==========================
     // Career
+    // ==========================
     education: String,
-    occupation: String,
+
     occupationType: String,
 
     companyName: String,
     businessType: String,
+    businessCategory: String,
+
     annualIncome: String,
+
     businessLocation: String,
     businessWebsite: String,
-    socialMedia: String,
 
-    businessCategory: String,
     yearsInBusiness: String,
     numberOfEmployees: String,
+
     branchLocations: String,
+    numberOfBranches: String,
+
+    socialMedia: String,
 
     nri: String,
 
+    // ==========================
     // Religion
+    // ==========================
     religion: String,
     caste: String,
     subCaste: String,
 
+    motherTongue: String,
+    kuladeivam: String,
+
+    // ==========================
     // Horoscope
-    star: String,
+    // ==========================
     zodiac: String,
     rashi: String,
+    star: String,
+
+    lagnam: String,
     gothram: String,
     dosha: String,
+
     birthTime: String,
     birthPlace: String,
+
+    sevvaiDosham: String,
+    rahuKethuDosham: String,
+
+    horoscopeAvailable: String,
+    horoscopeMatchingPreference: String,
+
     horoscopeFile: String,
 
-    // Family
+    // ==========================
+    // Family Details
+    // ==========================
     fatherName: String,
     fatherOccupation: String,
 
@@ -73,38 +104,58 @@ const userSchema = new mongoose.Schema(
     familyType: String,
     familyStatus: String,
 
+    // ==========================
     // Partner Preference
+    // ==========================
     preferredAgeFrom: Number,
     preferredAgeTo: Number,
+
     preferredHeight: String,
     preferredEducation: String,
     preferredOccupation: String,
+
     preferredReligion: String,
     preferredCaste: String,
     preferredLocation: String,
 
+    preferredRashi: String,
+    preferredStar: String,
+
+    acceptSevvaiDosham: String,
+    horoscopeMatchingRequired: String,
+
+    expectations: String,
+
+    // ==========================
     // Assets
+    // ==========================
     landAcres: String,
     landValue: String,
     house: String,
     vehicle: String,
     otherAssets: String,
 
-    // Others
+    // ==========================
+    // Other Details
+    // ==========================
     languages: String,
     hobbies: String,
-    expectations: String,
-    lands: String,
+
     address: String,
     registerAs: String,
 
+    // ==========================
     // Photos
+    // ==========================
     image: String,
+
     profilePhotos: [String],
     familyPhotos: [String],
     officePhotos: [String],
 
+    // ==========================
     // Verification
+    // ==========================
     gstVerified: {
       type: Boolean,
       default: false,
@@ -115,7 +166,9 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    // ==========================
     // Privacy
+    // ==========================
     hideMobile: {
       type: Boolean,
       default: false,
@@ -141,13 +194,17 @@ const userSchema = new mongoose.Schema(
       default: "Public",
     },
 
+    // ==========================
     // Premium
+    // ==========================
     isPremium: {
       type: Boolean,
       default: false,
     },
 
+    // ==========================
     // Interest System
+    // ==========================
     interestRequests: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -162,7 +219,9 @@ const userSchema = new mongoose.Schema(
       },
     ],
 
-    // Block & Report
+    // ==========================
+    // Blocked Users
+    // ==========================
     blockedUsers: [
       {
         type: mongoose.Schema.Types.ObjectId,
