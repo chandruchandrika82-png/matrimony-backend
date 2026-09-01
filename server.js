@@ -1,5 +1,6 @@
 require("dotenv").config();
 console.log("🔥 MY SERVER.JS IS RUNNING 🔥");
+
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
@@ -11,11 +12,12 @@ const User = require("./models/User");
 const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
-
 const app = express();
+
 app.get("/test", (req, res) => {
   res.send("SERVER IS WORKING");
 });
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -29,11 +31,12 @@ app.use("/uploads", express.static("uploads"));
 /* =========================
    DATABASE CONNECTION
 ========================= */
-mongoose.connect(
-  "mongodb+srv://matrimonyUser:Matrimony123@cluster0.qmqpriq.mongodb.net/matrimonyDB?retryWrites=true&w=majority"
-)
+mongoose
+  .connect(
+    "mongodb+srv://matrimonyUser:Matrimony123@cluster0.qmqpriq.mongodb.net/matrimonyDB?retryWrites=true&w=majority"
+  )
   .then(() => console.log("MongoDB Connected ✅"))
-  .catch(err => console.log("DB ERROR:", err));
+  .catch((err) => console.log("DB ERROR:", err));
 
 /* =========================
    IMAGE UPLOAD SETUP
@@ -47,13 +50,10 @@ const storage = new CloudinaryStorage({
 });
 
 const upload = multer({ storage });
+const otpStore = new Map();
 
 /* =========================
    AUTH ROUTES
-========================= */
-
-/* =========================
-   AUTH ROUTES (JWT)
 ========================= */
 
 // SECRET KEY
@@ -62,18 +62,14 @@ const JWT_SECRET = "digighatak_secret_key";
 // REGISTER
 app.post("/api/register", async (req, res) => {
   try {
-
-    const {
-      email,
-      password
-    } = req.body;
+    const { email, password } = req.body;
 
     // CHECK EXISTING USER
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
       return res.status(400).json({
-        error: "User already exists"
+        error: "User already exists",
       });
     }
 
@@ -81,13 +77,11 @@ app.post("/api/register", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // CREATE USER
-   
-
-   const user = new User({
-     ...req.body,
-     password: hashedPassword,
-    image: req.file ? `/uploads/${req.file.filename}` : ""
-   });
+    const user = new User({
+      ...req.body,
+      password: hashedPassword,
+      image: req.file ? `/uploads/${req.file.filename}` : "",
+    });
 
     await user.save();
 
@@ -95,57 +89,47 @@ app.post("/api/register", async (req, res) => {
     const token = jwt.sign(
       {
         userId: user._id,
-        email: user.email
+        email: user.email,
       },
       JWT_SECRET,
       {
-        expiresIn: "7d"
+        expiresIn: "7d",
       }
     );
 
     res.json({
       token,
-      user
+      user,
     });
+  } catch (err) {
+    console.log("SERVER ERROR:", err);
 
-  } 
-  catch (err) {
-  console.log("SERVER ERROR:", err);
-
-  res.status(500).json({
-    error: err.message
-  });
-}
+    res.status(500).json({
+      error: err.message,
+    });
+  }
 });
 
 // LOGIN
 app.post("/api/login", async (req, res) => {
-
   try {
-
-    const {
-      email,
-      password
-    } = req.body;
+    const { email, password } = req.body;
 
     // FIND USER
     const user = await User.findOne({ email });
 
     if (!user) {
       return res.status(401).json({
-        error: "User not found"
+        error: "User not found",
       });
     }
 
     // CHECK PASSWORD
-    const isMatch = await bcrypt.compare(
-      password,
-      user.password
-    );
+    const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       return res.status(401).json({
-        error: "Invalid password"
+        error: "Invalid password",
       });
     }
 
@@ -153,28 +137,102 @@ app.post("/api/login", async (req, res) => {
     const token = jwt.sign(
       {
         userId: user._id,
-        email: user.email
+        email: user.email,
       },
       JWT_SECRET,
       {
-        expiresIn: "7d"
+        expiresIn: "7d",
       }
     );
 
     res.json({
       token,
-      user
+      user,
+    });
+  } catch (err) {
+    console.log("SERVER ERROR:", err);
+
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
+/* =========================
+   OTP ROUTES
+========================= */
+app.post("/api/auth/send-otp", async (req, res) => {
+  try {
+    const { type, value } = req.body;
+
+    if (!type || !value) {
+      return res.status(400).json({
+        error: "Type and value are required",
+      });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    otpStore.set(`${type}:${value}`, {
+      otp,
+      expiresAt: Date.now() + 5 * 60 * 1000,
     });
 
-  } 
-  catch (err) {
-  console.log("SERVER ERROR:", err);
+    console.log(`OTP for ${type} (${value}): ${otp}`);
 
-  res.status(500).json({
-    error: err.message
-  });
-}
+    res.json({
+      message: `OTP sent to ${type}.`,
+      otp, // remove this later if you don't want to show OTP in response
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
 
+app.post("/api/auth/verify-otp", async (req, res) => {
+  try {
+    const { type, value, otp } = req.body;
+
+    if (!type || !value || !otp) {
+      return res.status(400).json({
+        error: "Type, value, and otp are required",
+      });
+    }
+
+    const key = `${type}:${value}`;
+    const record = otpStore.get(key);
+
+    if (!record) {
+      return res.status(400).json({
+        error: "OTP not found or expired",
+      });
+    }
+
+    if (Date.now() > record.expiresAt) {
+      otpStore.delete(key);
+      return res.status(400).json({
+        error: "OTP expired",
+      });
+    }
+
+    if (record.otp !== otp) {
+      return res.status(400).json({
+        error: "Invalid OTP",
+      });
+    }
+
+    otpStore.delete(key);
+
+    res.json({
+      message: `${type} verified successfully`,
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
 });
 
 /* =========================
@@ -215,6 +273,7 @@ app.get("/api/users", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 /* =========================
    GET SINGLE USER
 ========================= */
@@ -224,7 +283,7 @@ app.get("/api/users/:id", async (req, res) => {
 
     if (!user) {
       return res.status(404).json({
-        error: "User not found"
+        error: "User not found",
       });
     }
 
@@ -233,12 +292,11 @@ app.get("/api/users/:id", async (req, res) => {
     console.log("==================================");
 
     res.json(user);
-
   } catch (err) {
     console.log("SERVER ERROR:", err);
 
     res.status(500).json({
-      error: err.message
+      error: err.message,
     });
   }
 });
@@ -252,55 +310,41 @@ app.post(
     { name: "image", maxCount: 1 },
     { name: "profilePhotos", maxCount: 10 },
     { name: "familyPhotos", maxCount: 10 },
-    { name: "officePhotos", maxCount: 10 }
+    { name: "officePhotos", maxCount: 10 },
   ]),
   async (req, res) => {
     console.log("FILES:", req.files);
     console.log("BODY:", req.body);
-      try {
 
-    const hashedPassword = await bcrypt.hash(
-      req.body.password,
-      10
-    );
+    try {
+      const hashedPassword = await bcrypt.hash(req.body.password, 10);
 
-    const user = new User({
-  ...req.body,
-  password: hashedPassword,
+      const user = new User({
+        ...req.body,
+        password: hashedPassword,
 
-  image: req.files?.image?.[0]
-  ? req.files.image[0].path
-  : "",
+        image: req.files?.image?.[0] ? req.files.image[0].path : "",
 
-  profilePhotos:
-  req.files?.profilePhotos?.map(
-    file => file.path
-  ) || [],
+        profilePhotos:
+          req.files?.profilePhotos?.map((file) => file.path) || [],
 
-  familyPhotos:
-  req.files?.familyPhotos?.map(
-    file => file.path
-  ) || [],
+        familyPhotos: req.files?.familyPhotos?.map((file) => file.path) || [],
 
-  officePhotos:
-  req.files?.officePhotos?.map(
-    file => file.path
-  ) || [],
-});
+        officePhotos: req.files?.officePhotos?.map((file) => file.path) || [],
+      });
 
-    await user.save();
+      await user.save();
 
-    res.json(user);
+      res.json(user);
+    } catch (err) {
+      console.log("SERVER ERROR:", err);
 
-  } 
-  catch (err) {
-  console.log("SERVER ERROR:", err);
-
-  res.status(500).json({
-    error: err.message
-  });
-}
-});
+      res.status(500).json({
+        error: err.message,
+      });
+    }
+  }
+);
 
 /* =========================
    UPDATE USER
@@ -313,20 +357,20 @@ app.put(
     { name: "image", maxCount: 1 },
     { name: "profilePhotos", maxCount: 10 },
     { name: "familyPhotos", maxCount: 10 },
-    { name: "officePhotos", maxCount: 10 }
+    { name: "officePhotos", maxCount: 10 },
   ]),
   async (req, res) => {
     try {
-
       console.log("BODY:");
       console.dir(req.body, { depth: null });
 
       const updateData = { ...req.body };
+
       console.log("========== UPDATE DATA ==========");
-Object.keys(updateData).forEach((key) => {
-  console.log(key, "=>", updateData[key]);
-});
-console.log("=================================");
+      Object.keys(updateData).forEach((key) => {
+        console.log(key, "=>", updateData[key]);
+      });
+      console.log("=================================");
 
       // Remove fields that should NEVER come from frontend
       delete updateData.interestRequests;
@@ -344,20 +388,23 @@ console.log("=================================");
 
       // Profile photos
       if (req.files?.profilePhotos) {
-        updateData.profilePhotos =
-          req.files.profilePhotos.map(file => file.path);
+        updateData.profilePhotos = req.files.profilePhotos.map(
+          (file) => file.path
+        );
       }
 
       // Family photos
       if (req.files?.familyPhotos) {
-        updateData.familyPhotos =
-          req.files.familyPhotos.map(file => file.path);
+        updateData.familyPhotos = req.files.familyPhotos.map(
+          (file) => file.path
+        );
       }
 
       // Office photos
       if (req.files?.officePhotos) {
-        updateData.officePhotos =
-          req.files.officePhotos.map(file => file.path);
+        updateData.officePhotos = req.files.officePhotos.map(
+          (file) => file.path
+        );
       }
 
       console.log("UPDATE DATA:");
@@ -368,31 +415,71 @@ console.log("=================================");
         updateData,
         {
           new: true,
-          runValidators: true
+          runValidators: true,
         }
       );
 
       if (!updatedUser) {
         return res.status(404).json({
-          error: "User not found"
+          error: "User not found",
         });
       }
 
       res.json(updatedUser);
-
     } catch (err) {
-
       console.log("========== UPDATE ERROR ==========");
       console.log(err);
       console.log("==================================");
 
       res.status(500).json({
-        error: err.message
+        error: err.message,
       });
-
     }
   }
 );
+
+/* =========================
+   CHANGE PASSWORD
+========================= */
+app.put("/api/users/:id/password", async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({
+        error: "Old password and new password are required",
+      });
+    }
+
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({
+        error: "User not found",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+
+    if (!isMatch) {
+      return res.status(400).json({
+        error: "Current password is incorrect",
+      });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.json({
+      message: "Password updated successfully",
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
 /* =========================
    SEND INTEREST REQUEST
 ========================= */
@@ -447,7 +534,7 @@ app.put("/api/users/:id/block/:blockId", async (req, res) => {
 
     if (!user) {
       return res.status(404).json({
-        error: "User not found"
+        error: "User not found",
       });
     }
 
@@ -458,12 +545,11 @@ app.put("/api/users/:id/block/:blockId", async (req, res) => {
 
     res.json({
       message: "User blocked successfully",
-      blockedUsers: user.blockedUsers
+      blockedUsers: user.blockedUsers,
     });
-
   } catch (err) {
     res.status(500).json({
-      error: err.message
+      error: err.message,
     });
   }
 });
@@ -473,27 +559,24 @@ app.put("/api/users/:id/block/:blockId", async (req, res) => {
 ========================= */
 app.put("/api/users/:id/report", async (req, res) => {
   try {
-
     const user = await User.findById(req.params.id);
 
     if (!user) {
       return res.status(404).json({
-        error: "User not found"
+        error: "User not found",
       });
     }
 
     user.reportedCount += 1;
-
     await user.save();
 
     res.json({
       message: "Profile reported successfully",
-      reportedCount: user.reportedCount
+      reportedCount: user.reportedCount,
     });
-
   } catch (err) {
     res.status(500).json({
-      error: err.message
+      error: err.message,
     });
   }
 });
