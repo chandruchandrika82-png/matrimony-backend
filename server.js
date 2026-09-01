@@ -398,102 +398,40 @@ console.log("=================================");
 ========================= */
 app.put("/api/users/:receiverId/interest/:senderId", async (req, res) => {
   try {
-
     const { receiverId, senderId } = req.params;
 
     const receiver = await User.findById(receiverId);
 
     if (!receiver) {
       return res.status(404).json({
-        error: "Receiver not found"
+        error: "Receiver not found",
       });
     }
 
-    if (!receiver.interestRequests.includes(senderId)) {
-      receiver.interestRequests.push(senderId);
+    const alreadyInterested = receiver.interestRequests.some(
+      (id) => id.toString() === senderId
+    );
+
+    if (alreadyInterested) {
+      receiver.interestRequests = receiver.interestRequests.filter(
+        (id) => id.toString() !== senderId
+      );
       await receiver.save();
-    }
 
-    res.json({
-      message: "Interest request sent successfully."
-    });
-
-  } catch (err) {
-    res.status(500).json({
-      error: err.message
-    });
-  }
-});
-
-/* =========================
-   ACCEPT INTEREST REQUEST
-========================= */
-app.put("/api/users/:userId/accept/:senderId", async (req, res) => {
-  try {
-
-    const { userId, senderId } = req.params;
-
-    const user = await User.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({
-        error: "User not found"
+      return res.json({
+        message: "Interest removed successfully.",
       });
     }
 
-    // Remove from pending requests
-    user.interestRequests = user.interestRequests.filter(
-      id => id.toString() !== senderId
-    );
-
-    // Add to accepted list
-    if (!user.acceptedRequests.includes(senderId)) {
-      user.acceptedRequests.push(senderId);
-    }
-
-    await user.save();
+    receiver.interestRequests.push(senderId);
+    await receiver.save();
 
     res.json({
-      message: "Interest accepted successfully.",
-      acceptedRequests: user.acceptedRequests
+      message: "Interest request sent successfully.",
     });
-
   } catch (err) {
     res.status(500).json({
-      error: err.message
-    });
-  }
-});
-
-/* =========================
-   REJECT INTEREST REQUEST
-========================= */
-app.put("/api/users/:userId/reject/:senderId", async (req, res) => {
-  try {
-
-    const { userId, senderId } = req.params;
-
-    const user = await User.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({
-        error: "User not found"
-      });
-    }
-
-    user.interestRequests = user.interestRequests.filter(
-      id => id.toString() !== senderId
-    );
-
-    await user.save();
-
-    res.json({
-      message: "Interest rejected."
-    });
-
-  } catch (err) {
-    res.status(500).json({
-      error: err.message
+      error: err.message,
     });
   }
 });
