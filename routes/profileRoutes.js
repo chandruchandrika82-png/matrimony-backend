@@ -10,9 +10,22 @@ router.get("/", async (req, res) => {
 
 // POST new profile
 router.post("/", async (req, res) => {
-  const newProfile = new Profile(req.body);
-  await newProfile.save();
-  res.json(newProfile);
-});
+  try {
+    console.log("Incoming Data:");
+    console.log(req.body);
 
-module.exports = router;
+    const newProfile = new Profile(req.body);
+
+    await newProfile.save();
+
+    res.json(newProfile);
+  } catch (err) {
+    console.error("SAVE ERROR:");
+    console.error(err);
+
+    res.status(500).json({
+      message: err.message,
+      error: err,
+    });
+  }
+});
