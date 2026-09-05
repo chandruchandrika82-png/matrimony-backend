@@ -82,7 +82,6 @@ const userSchema = new mongoose.Schema(
     rahuKethuDosham: String,
 
     horoscopeAvailable: String,
-    horoscopeMatchingPreference: String,
 
     horoscopeFile: String,
 
