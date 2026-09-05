@@ -311,6 +311,7 @@ app.post(
     { name: "profilePhotos", maxCount: 10 },
     { name: "familyPhotos", maxCount: 10 },
     { name: "officePhotos", maxCount: 10 },
+    { name: "horoscopeFile", maxCount: 1 },
   ]),
   async (req, res) => {
     console.log("FILES:", req.files);
@@ -331,6 +332,8 @@ app.post(
         familyPhotos: req.files?.familyPhotos?.map((file) => file.path) || [],
 
         officePhotos: req.files?.officePhotos?.map((file) => file.path) || [],
+
+        horoscopeFile: req.files?.horoscopeFile?.[0]?.path || "",
       });
 
       await user.save();
@@ -358,6 +361,7 @@ app.put(
     { name: "profilePhotos", maxCount: 10 },
     { name: "familyPhotos", maxCount: 10 },
     { name: "officePhotos", maxCount: 10 },
+    { name: "horoscopeFile", maxCount: 1 },
   ]),
   async (req, res) => {
     try {
@@ -406,6 +410,9 @@ app.put(
           (file) => file.path
         );
       }
+      if (req.files?.horoscopeFile?.[0]) {
+  updateData.horoscopeFile = req.files.horoscopeFile[0].path;
+}
 
       console.log("UPDATE DATA:");
       console.dir(updateData, { depth: null });
