@@ -1,10 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const Profile = require("../models/Profile");
+const User = require("../models/User");
 
 // GET all profiles
 router.get("/", async (req, res) => {
-  const profiles = await Profile.find();
+  const profiles = await User.find().select("-password");
   res.json(profiles);
 });
 
@@ -14,7 +14,7 @@ router.post("/", async (req, res) => {
     console.log("Incoming Data:");
     console.log(req.body);
 
-    const newProfile = new Profile(req.body);
+    const newProfile = new User(req.body);
 
     await newProfile.save();
 

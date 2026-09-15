@@ -1,14 +1,15 @@
 require("dotenv").config();
+console.log("ENV FILE:", process.env.MONGODB_URI);
 console.log("🔥 MY SERVER.JS IS RUNNING 🔥");
 
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const multer = require("multer");
-const path = require("path");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const User = require("./models/User");
+const Message = require("./models/Message");
 const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
@@ -24,17 +25,23 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : true,
+  })
+);
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
 /* =========================
    DATABASE CONNECTION
 ========================= */
+if (!process.env.MONGODB_URI) {
+  console.error("MONGODB_URI is required. Copy .env.example to .env and configure it.");
+}
+
 mongoose
-  .connect(
-    "mongodb+srv://matrimonyUser:Matrimony123@cluster0.qmqpriq.mongodb.net/matrimonyDB?retryWrites=true&w=majority"
-  )
+  .connect(process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/namakkal-matrimony")
   .then(() => console.log("MongoDB Connected ✅"))
   .catch((err) => console.log("DB ERROR:", err));
 
@@ -57,15 +64,39 @@ const otpStore = new Map();
 ========================= */
 
 // SECRET KEY
-const JWT_SECRET = "digighatak_secret_key";
+const JWT_SECRET = process.env.JWT_SECRET || "development-only-secret-change-before-deploying";
+
+function authenticateToken(req, res, next) {
+  const token = req.headers.authorization?.replace(/^Bearer\s+/i, "");
+  if (!token) return res.status(401).json({ error: "Authentication is required" });
+  try {
+    req.auth = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    res.status(401).json({ error: "Your session has expired. Please sign in again." });
+  }
+}
+
+function requireOwner(paramName) {
+  return (req, res, next) => {
+    if (req.auth.userId !== req.params[paramName]) {
+      return res.status(403).json({ error: "You do not have permission for this profile" });
+    }
+    next();
+  };
+}
 
 // REGISTER
 app.post("/api/register", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, name } = req.body;
+
+    if (!name || !email || !password || password.length < 8) {
+      return res.status(400).json({ error: "Name, email, and a password of at least 8 characters are required" });
+    }
 
     // CHECK EXISTING USER
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
 
     if (existingUser) {
       return res.status(400).json({
@@ -78,9 +109,9 @@ app.post("/api/register", async (req, res) => {
 
     // CREATE USER
     const user = new User({
-      ...req.body,
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
       password: hashedPassword,
-      image: req.file ? `/uploads/${req.file.filename}` : "",
     });
 
     await user.save();
@@ -99,7 +130,7 @@ app.post("/api/register", async (req, res) => {
 
     res.json({
       token,
-      user,
+      user: user.toObject({ transform: (_, value) => { delete value.password; return value; } }),
     });
   } catch (err) {
     console.log("SERVER ERROR:", err);
@@ -116,7 +147,7 @@ app.post("/api/login", async (req, res) => {
     const { email, password } = req.body;
 
     // FIND USER
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email?.trim().toLowerCase() });
 
     if (!user) {
       return res.status(401).json({
@@ -147,7 +178,7 @@ app.post("/api/login", async (req, res) => {
 
     res.json({
       token,
-      user,
+      user: user.toObject({ transform: (_, value) => { delete value.password; return value; } }),
     });
   } catch (err) {
     console.log("SERVER ERROR:", err);
@@ -265,7 +296,7 @@ app.get("/api/users", async (req, res) => {
       };
     }
 
-    const users = await User.find(filter).sort({ createdAt: -1 });
+    const users = await User.find(filter).select("-password").sort({ createdAt: -1 });
 
     res.json(users);
   } catch (err) {
@@ -279,7 +310,7 @@ app.get("/api/users", async (req, res) => {
 ========================= */
 app.get("/api/users/:id", async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(req.params.id).select("-password");
 
     if (!user) {
       return res.status(404).json({
@@ -306,6 +337,7 @@ app.get("/api/users/:id", async (req, res) => {
 ========================= */
 app.post(
   "/api/users",
+  authenticateToken,
   upload.fields([
     { name: "image", maxCount: 1 },
     { name: "profilePhotos", maxCount: 10 },
@@ -318,6 +350,9 @@ app.post(
     console.log("BODY:", req.body);
 
     try {
+      if (req.auth.userId !== req.body.userId) {
+        return res.status(403).json({ error: "Profiles can only be created for your own account" });
+      }
       const hashedPassword = await bcrypt.hash(req.body.password, 10);
 
       const user = new User({
@@ -356,6 +391,8 @@ console.log("✅ UPDATE ROUTE REGISTERED");
 
 app.put(
   "/api/users/:id",
+  authenticateToken,
+  requireOwner("id"),
   upload.fields([
     { name: "image", maxCount: 1 },
     { name: "profilePhotos", maxCount: 10 },
@@ -424,7 +461,7 @@ app.put(
           new: true,
           runValidators: true,
         }
-      );
+      ).select("-password");
 
       if (!updatedUser) {
         return res.status(404).json({
@@ -448,7 +485,7 @@ app.put(
 /* =========================
    CHANGE PASSWORD
 ========================= */
-app.put("/api/users/:id/password", async (req, res) => {
+app.put("/api/users/:id/password", authenticateToken, requireOwner("id"), async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
 
@@ -490,13 +527,20 @@ app.put("/api/users/:id/password", async (req, res) => {
 /* =========================
    SEND INTEREST REQUEST
 ========================= */
-app.put("/api/users/:receiverId/interest/:senderId", async (req, res) => {
+app.put("/api/users/:receiverId/interest/:senderId", authenticateToken, requireOwner("senderId"), async (req, res) => {
   try {
     const { receiverId, senderId } = req.params;
 
-    const receiver = await User.findById(receiverId);
+    if (receiverId === senderId) {
+      return res.status(400).json({ error: "You cannot send interest to your own profile" });
+    }
 
-    if (!receiver) {
+    const [receiver, sender] = await Promise.all([
+      User.findById(receiverId),
+      User.findById(senderId),
+    ]);
+
+    if (!receiver || !sender) {
       return res.status(404).json({
         error: "Receiver not found",
       });
@@ -533,7 +577,7 @@ app.put("/api/users/:receiverId/interest/:senderId", async (req, res) => {
 /* =========================
    BLOCK USER
 ========================= */
-app.put("/api/users/:id/block/:blockId", async (req, res) => {
+app.put("/api/users/:id/block/:blockId", authenticateToken, requireOwner("id"), async (req, res) => {
   try {
     const { id, blockId } = req.params;
 
@@ -564,7 +608,7 @@ app.put("/api/users/:id/block/:blockId", async (req, res) => {
 /* =========================
    REPORT USER
 ========================= */
-app.put("/api/users/:id/report", async (req, res) => {
+app.put("/api/users/:id/report", authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
@@ -591,16 +635,80 @@ app.put("/api/users/:id/report", async (req, res) => {
 /* =========================
    DELETE USER
 ========================= */
-app.delete("/api/users/:id", async (req, res) => {
-  await User.findByIdAndDelete(req.params.id);
-  res.json({ message: "Deleted" });
+app.delete("/api/users/:id", authenticateToken, requireOwner("id"), async (req, res) => {
+  await Promise.all([
+    User.findByIdAndDelete(req.params.id),
+    Message.deleteMany({ $or: [{ sender: req.params.id }, { receiver: req.params.id }] }),
+  ]);
+  res.json({ message: "Account deleted" });
 });
 
 /* =========================
    START SERVER
 ========================= */
-const PORT = 5000;
+const PORT = Number(process.env.PORT) || 5000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT} 🚀`);
+});
+
+app.put("/api/users/:receiverId/accept/:senderId", authenticateToken, requireOwner("receiverId"), async (req, res) => {
+  try {
+    const { receiverId, senderId } = req.params;
+    const receiver = await User.findById(receiverId);
+    if (!receiver) return res.status(404).json({ error: "Receiver not found" });
+
+    receiver.interestRequests = receiver.interestRequests.filter((id) => id.toString() !== senderId);
+    if (!receiver.acceptedRequests.some((id) => id.toString() === senderId)) {
+      receiver.acceptedRequests.push(senderId);
+    }
+    await receiver.save();
+    res.json({ message: "Interest request accepted" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/api/users/:receiverId/reject/:senderId", authenticateToken, requireOwner("receiverId"), async (req, res) => {
+  try {
+    const receiver = await User.findById(req.params.receiverId);
+    if (!receiver) return res.status(404).json({ error: "Receiver not found" });
+
+    receiver.interestRequests = receiver.interestRequests.filter((id) => id.toString() !== req.params.senderId);
+    await receiver.save();
+    res.json({ message: "Interest request declined" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/messages/:firstUserId/:secondUserId", authenticateToken, async (req, res) => {
+  try {
+    const { firstUserId, secondUserId } = req.params;
+    if (req.auth.userId !== firstUserId && req.auth.userId !== secondUserId) {
+      return res.status(403).json({ error: "You do not have access to this conversation" });
+    }
+    const messages = await Message.find({
+      $or: [
+        { sender: firstUserId, receiver: secondUserId },
+        { sender: secondUserId, receiver: firstUserId },
+      ],
+    }).sort({ createdAt: 1 });
+    res.json(messages);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/messages", authenticateToken, async (req, res) => {
+  try {
+    const { sender, receiver, text } = req.body;
+    if (req.auth.userId !== sender || !receiver || !text?.trim()) {
+      return res.status(400).json({ error: "Sender, receiver, and message text are required" });
+    }
+    const message = await Message.create({ sender, receiver, text });
+    res.status(201).json(message);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
