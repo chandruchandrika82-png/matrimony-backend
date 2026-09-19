@@ -25,11 +25,30 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : true,
-  })
-);
+// =========================
+// CORS
+// =========================
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+];
+
+app.use(cors({
+  origin(origin, callback) {
+    // Allow Postman/PowerShell (no Origin header)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+}));
+
+app.options("*", cors());
+
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
@@ -89,14 +108,26 @@ function requireOwner(paramName) {
 // REGISTER
 app.post("/api/register", async (req, res) => {
   try {
-    const { email, password, name } = req.body;
+    console.log("===== REGISTER REQUEST =====");
+    console.log(req.body);
 
-    if (!name || !email || !password || password.length < 8) {
-      return res.status(400).json({ error: "Name, email, and a password of at least 8 characters are required" });
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        error: "Please fill all required fields",
+      });
     }
 
-    // CHECK EXISTING USER
-    const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
+    if (password.length < 8) {
+      return res.status(400).json({
+        error: "Password must be at least 8 characters",
+      });
+    }
+
+    const existingUser = await User.findOne({
+      email: email.trim().toLowerCase(),
+    });
 
     if (existingUser) {
       return res.status(400).json({
@@ -104,10 +135,8 @@ app.post("/api/register", async (req, res) => {
       });
     }
 
-    // HASH PASSWORD
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // CREATE USER
     const user = new User({
       name: name.trim(),
       email: email.trim().toLowerCase(),
@@ -116,7 +145,6 @@ app.post("/api/register", async (req, res) => {
 
     await user.save();
 
-    // CREATE TOKEN
     const token = jwt.sign(
       {
         userId: user._id,
@@ -128,12 +156,19 @@ app.post("/api/register", async (req, res) => {
       }
     );
 
-    res.json({
+    const userData = user.toObject();
+    delete userData.password;
+
+    res.status(201).json({
       token,
-      user: user.toObject({ transform: (_, value) => { delete value.password; return value; } }),
+      user: userData,
     });
+
   } catch (err) {
-    console.log("SERVER ERROR:", err);
+    console.log("========== REGISTER ERROR ==========");
+    console.error(err);
+    console.log("REQUEST BODY:", req.body);
+    console.log("====================================");
 
     res.status(500).json({
       error: err.message,
