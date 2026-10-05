@@ -6,8 +6,13 @@ const userSchema = new mongoose.Schema(
     // Authentication
     // ==========================
     name: String,
-    email: String,
-    password: String,
+email: String,
+password: String,
+
+role: {
+  type: String,
+  default: "user",
+},
 
     // ==========================
     // Basic Details
@@ -212,6 +217,15 @@ const userSchema = new mongoose.Schema(
     ],
 
     acceptedRequests: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+        // ==========================
+    // Favorite Profiles
+    // ==========================
+    favoriteProfiles: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",

@@ -138,10 +138,11 @@ app.post("/api/register", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = new User({
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      password: hashedPassword,
-    });
+  name: name.trim(),
+  email: email.trim().toLowerCase(),
+  password: hashedPassword,
+  role: "user",
+});
 
     await user.save();
 
@@ -190,6 +191,9 @@ app.post("/api/login", async (req, res) => {
       });
     }
 
+    
+    
+
     // CHECK PASSWORD
     const isMatch = await bcrypt.compare(password, user.password);
 
@@ -223,6 +227,58 @@ app.post("/api/login", async (req, res) => {
     });
   }
 });
+
+// ADMIN LOGIN
+app.post("/api/admin/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const admin = await User.findOne({
+      email: email.trim().toLowerCase(),
+      role: "admin",
+    });
+
+    if (!admin) {
+      return res.status(401).json({
+        error: "Admin not found",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, admin.password);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        error: "Invalid password",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        userId: admin._id,
+        role: admin.role,
+      },
+      JWT_SECRET,
+      {
+        expiresIn: "7d",
+      }
+    );
+
+    const userData = admin.toObject();
+    delete userData.password;
+
+    res.json({
+      token,
+      user: userData,
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
+
 
 /* =========================
    OTP ROUTES
@@ -747,3 +803,87 @@ app.post("/api/messages", authenticateToken, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+/* =========================
+   FAVORITE PROFILES
+========================= */
+
+// Toggle Favorite
+app.put(
+  "/api/users/:userId/favorite/:favoriteId",
+  authenticateToken,
+  requireOwner("userId"),
+  async (req, res) => {
+    try {
+      const { userId, favoriteId } = req.params;
+
+      if (userId === favoriteId) {
+        return res
+          .status(400)
+          .json({ error: "You cannot favorite your own profile." });
+      }
+
+      const user = await User.findById(userId);
+
+      if (!user) {
+        return res.status(404).json({
+          error: "User not found",
+        });
+      }
+
+      const exists = user.favoriteProfiles.some(
+        (id) => id.toString() === favoriteId
+      );
+
+      if (exists) {
+        user.favoriteProfiles = user.favoriteProfiles.filter(
+          (id) => id.toString() !== favoriteId
+        );
+
+        await user.save();
+
+        return res.json({
+          message: "Removed from favorites",
+          favoriteProfiles: user.favoriteProfiles,
+        });
+      }
+
+      user.favoriteProfiles.push(favoriteId);
+
+      await user.save();
+
+      res.json({
+        message: "Added to favorites",
+        favoriteProfiles: user.favoriteProfiles,
+      });
+    } catch (err) {
+      res.status(500).json({
+        error: err.message,
+      });
+    }
+  }
+);
+
+// Get Favorite Profiles
+app.get(
+  "/api/users/:userId/favorites",
+  authenticateToken,
+  requireOwner("userId"),
+  async (req, res) => {
+    try {
+      const user = await User.findById(req.params.userId)
+        .populate("favoriteProfiles", "-password");
+
+      if (!user) {
+        return res.status(404).json({
+          error: "User not found",
+        });
+      }
+
+      res.json(user.favoriteProfiles);
+    } catch (err) {
+      res.status(500).json({
+        error: err.message,
+      });
+    }
+  }
+);
