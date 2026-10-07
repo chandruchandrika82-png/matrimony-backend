@@ -31,8 +31,11 @@ cloudinary.config({
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
-  "https://matrimony-admin-azure.vercel.app",
+  "http://localhost",
+  "https://localhost",
+  "capacitor://localhost",
   "https://matrimony-frontend-sage.vercel.app",
+  "https://matrimony-admin-azure.vercel.app",
 ];
 
 app.use(cors({
