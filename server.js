@@ -138,6 +138,80 @@ function requireOwner(paramName) {
   };
 }
 
+async function requireAdmin(req, res, next) {
+  try {
+    const account = await User.findById(req.auth.userId).select("role");
+    if (req.auth.role !== "admin" || account?.role !== "admin") {
+      return res.status(403).json({ error: "Administrator access is required" });
+    }
+    next();
+  } catch {
+    res.status(503).json({ error: "Unable to verify administrator access" });
+  }
+}
+
+const adminMemberFields = ["name", "email", "mobile", "age", "gender", "dob", "height", "weight", "nativePlace", "currentCity", "district", "state", "country", "maritalStatus", "education", "occupationType", "companyName", "annualIncome", "religion", "caste", "subCaste", "motherTongue", "star", "rashi", "fatherName", "motherName", "address", "expectations", "isPremium"];
+function memberInput(body) {
+  const data = {};
+  for (const field of adminMemberFields) {
+    if (body[field] === undefined) continue;
+    if (field === "isPremium") {
+      if (typeof body[field] !== "boolean") throw new Error("Invalid membership value");
+      data[field] = body[field];
+    } else if (field === "age") {
+      if (body[field] === "" || body[field] === null) data[field] = null;
+      else {
+        const age = Number(body[field]);
+        if (!Number.isInteger(age) || age < 18 || age > 100) throw new Error("Age must be between 18 and 100");
+        data[field] = age;
+      }
+    } else {
+      if (typeof body[field] !== "string") throw new Error("Invalid member details");
+      data[field] = body[field].trim();
+    }
+  }
+  if (!data.name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email || "")) throw new Error("Name and a valid email address are required");
+  data.email = data.email.toLowerCase();
+  return data;
+}
+function adminMemberError(res, error) {
+  const expected = error.name === "ValidationError" || error.name === "CastError" || error.code === 11000 || error.message.startsWith("Age must") || error.message.startsWith("Invalid") || error.message.startsWith("Name and");
+  res.status(expected ? 400 : 500).json({ error: expected ? error.code === 11000 ? "This email address is already registered" : error.message : "Unable to save member. Please try again." });
+}
+app.post("/api/admin/members", authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const data = memberInput(req.body);
+    if (typeof req.body.password !== "string" || req.body.password.length < 8) return res.status(400).json({ error: "Password must contain at least 8 characters" });
+    if (await User.exists({ email: data.email })) return res.status(409).json({ error: "This email address is already registered" });
+    const user = await User.create({ ...data, role: "user", password: await bcrypt.hash(req.body.password, 10) });
+    const result = user.toObject();
+    delete result.password;
+    res.status(201).json(result);
+  } catch (error) { adminMemberError(res, error); }
+});
+app.put("/api/admin/members/:id", authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Invalid member ID" });
+    const data = memberInput(req.body);
+    if (await User.exists({ email: data.email, _id: { $ne: req.params.id } })) return res.status(409).json({ error: "This email address is already registered" });
+    const user = await User.findOneAndUpdate({ _id: req.params.id, role: "user" }, { $set: data }, { new: true, runValidators: true }).select("-password");
+    if (!user) return res.status(404).json({ error: "Member not found or administrator account cannot be edited here" });
+    res.json(user);
+  } catch (error) { adminMemberError(res, error); }
+});
+app.delete("/api/admin/members/:id", authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Invalid member ID" });
+    const user = await User.findOneAndDelete({ _id: req.params.id, role: "user" });
+    if (!user) return res.status(404).json({ error: "Member not found or administrator account cannot be deleted here" });
+    await Promise.all([
+      Message.deleteMany({ $or: [{ sender: req.params.id }, { receiver: req.params.id }] }),
+      User.updateMany({}, { $pull: { favoriteProfiles: req.params.id, blockedUsers: req.params.id, acceptedRequests: req.params.id, interestRequests: req.params.id } }),
+    ]);
+    res.json({ message: "Member deleted" });
+  } catch { res.status(500).json({ error: "Unable to complete member deletion. Refresh the directory and try again." }); }
+});
+
 // REGISTER
 app.post("/api/register", async (req, res) => {
   try {
@@ -481,6 +555,8 @@ app.post(
 
       const user = new User({
         ...req.body,
+        role: "user",
+        isPremium: false,
         password: hashedPassword,
 
         image: req.files?.image?.[0] ? req.files.image[0].path : "",
@@ -546,6 +622,8 @@ app.put(
       delete updateData.updatedAt;
       delete updateData.__v;
       delete updateData.password;
+      delete updateData.role;
+      delete updateData.isPremium;
 
       // Main image
       if (req.files?.image?.[0]) {
