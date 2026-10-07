@@ -202,6 +202,10 @@ function adminMemberError(res, error) {
   const expected = error.name === "ValidationError" || error.name === "CastError" || error.code === 11000 || error.message.startsWith("Age must") || error.message.startsWith("Invalid") || error.message.startsWith("Name and");
   res.status(expected ? 400 : 500).json({ error: expected ? error.code === 11000 ? "This email address is already registered" : error.message : "Unable to save member. Please try again." });
 }
+function adminMemberQuery(id) {
+  // Legacy member records may predate the role field; administrator accounts stay excluded.
+  return { _id: id, $or: [{ role: "user" }, { role: { $exists: false } }, { role: null }, { role: "" }] };
+}
 app.post("/api/admin/members", authenticateToken, requireAdmin, adminProfileUpload, async (req, res) => {
   try {
     const data = memberInput(req.body);
@@ -222,7 +226,7 @@ app.put("/api/admin/members/:id", authenticateToken, requireAdmin, adminProfileU
     const photos = adminUploadData(req, data);
     const update = { $set: data };
     if (Object.keys(photos).length) update.$push = Object.fromEntries(Object.entries(photos).map(([field, urls]) => [field, { $each: urls }]));
-    const user = await User.findOneAndUpdate({ _id: req.params.id, role: "user" }, update, { new: true, runValidators: true }).select("-password");
+    const user = await User.findOneAndUpdate(adminMemberQuery(req.params.id), update, { new: true, runValidators: true }).select("-password");
     if (!user) return res.status(404).json({ error: "Member not found or administrator account cannot be edited here" });
     res.json(user);
   } catch (error) { adminMemberError(res, error); }
@@ -230,7 +234,7 @@ app.put("/api/admin/members/:id", authenticateToken, requireAdmin, adminProfileU
 app.delete("/api/admin/members/:id", authenticateToken, requireAdmin, async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Invalid member ID" });
-    const user = await User.findOneAndDelete({ _id: req.params.id, role: "user" });
+    const user = await User.findOneAndDelete(adminMemberQuery(req.params.id));
     if (!user) return res.status(404).json({ error: "Member not found or administrator account cannot be deleted here" });
     await Promise.all([
       Message.deleteMany({ $or: [{ sender: req.params.id }, { receiver: req.params.id }] }),
