@@ -539,6 +539,7 @@ app.put(
 
       // Remove fields that should NEVER come from frontend
       delete updateData.interestRequests;
+      delete updateData.favoriteProfiles;
       delete updateData.acceptedRequests;
       delete updateData.blockedUsers;
       delete updateData.createdAt;
