@@ -73,11 +73,42 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: "matrimony",
-    allowed_formats: ["jpg", "jpeg", "png", "webp"],
+    allowed_formats: ["jpg", "jpeg", "png", "webp", "pdf"],
+    resource_type: "auto",
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter(req, file, callback) {
+    const config = cloudinary.config();
+    if (!config.cloud_name || !config.api_key || !config.api_secret) {
+      const error = new Error("Photo uploads are not configured. Ask the administrator to configure Cloudinary on the backend.");
+      error.code = "UPLOAD_NOT_CONFIGURED";
+      return callback(error);
+    }
+    const imageTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!imageTypes.includes(file.mimetype) && !(file.fieldname === "horoscopeFile" && file.mimetype === "application/pdf")) {
+      const error = new Error("Use JPG, PNG, or WebP photos. Horoscope files may also be PDF.");
+      error.code = "UNSUPPORTED_UPLOAD";
+      return callback(error);
+    }
+    callback(null, true);
+  },
+});
+
+function profileUpload(fields) {
+  const middleware = upload.fields(fields);
+  return (req, res, next) => middleware(req, res, error => {
+    if (!error) return next();
+    if (error.code === "UPLOAD_NOT_CONFIGURED") return res.status(503).json({ error: error.message });
+    if (error.code === "UNSUPPORTED_UPLOAD") return res.status(400).json({ error: error.message });
+    if (error.code === "LIMIT_FILE_SIZE") return res.status(400).json({ error: "Each uploaded file must be 10 MB or smaller." });
+    if (error.code === "LIMIT_UNEXPECTED_FILE") return res.status(400).json({ error: "Upload at most 10 photos per category, one main photo, and one horoscope file." });
+    return res.status(502).json({ error: "The photo upload service could not accept your file. Check the backend Cloudinary credentials and try again." });
+  });
+}
 const otpStore = new Map();
 
 /* =========================
@@ -431,7 +462,7 @@ app.get("/api/users/:id", async (req, res) => {
 app.post(
   "/api/users",
   authenticateToken,
-  upload.fields([
+  profileUpload([
     { name: "image", maxCount: 1 },
     { name: "profilePhotos", maxCount: 10 },
     { name: "familyPhotos", maxCount: 10 },
@@ -486,7 +517,7 @@ app.put(
   "/api/users/:id",
   authenticateToken,
   requireOwner("id"),
-  upload.fields([
+  profileUpload([
     { name: "image", maxCount: 1 },
     { name: "profilePhotos", maxCount: 10 },
     { name: "familyPhotos", maxCount: 10 },
