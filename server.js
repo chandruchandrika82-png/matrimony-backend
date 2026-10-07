@@ -150,19 +150,39 @@ async function requireAdmin(req, res, next) {
   }
 }
 
-const adminMemberFields = ["name", "email", "mobile", "age", "gender", "dob", "height", "weight", "nativePlace", "currentCity", "district", "state", "country", "maritalStatus", "education", "occupationType", "companyName", "annualIncome", "religion", "caste", "subCaste", "motherTongue", "star", "rashi", "fatherName", "motherName", "address", "expectations", "isPremium"];
+const adminMemberFields = [
+  "name", "email", "mobile", "age", "gender", "dob", "height", "weight", "nativePlace", "currentCity", "district", "state", "country", "maritalStatus", "registerAs",
+  "education", "occupationType", "companyName", "annualIncome", "nri", "businessType", "businessCategory", "businessLocation", "businessWebsite", "yearsInBusiness", "numberOfEmployees", "numberOfBranches", "branchLocations", "socialMedia",
+  "religion", "caste", "subCaste", "motherTongue", "kuladeivam", "star", "rashi", "lagnam", "gothram", "dosha", "birthTime", "birthPlace", "horoscopeAvailable", "sevvaiDosham", "rahuKethuDosham",
+  "fatherName", "fatherOccupation", "motherName", "motherOccupation", "brothersCount", "brothersMarried", "sistersCount", "sistersMarried", "familyType", "familyStatus",
+  "preferredAgeFrom", "preferredAgeTo", "preferredHeight", "preferredEducation", "preferredOccupation", "preferredReligion", "preferredCaste", "preferredLocation", "preferredRashi", "preferredStar", "acceptSevvaiDosham", "horoscopeMatchingRequired", "expectations",
+  "landAcres", "landValue", "house", "vehicle", "otherAssets", "address", "profileVisibility", "hideMobile", "hideIncome", "hideCompany", "hidePhotos", "isPremium", "gstVerified", "businessVerified",
+];
+const adminBooleanFields = ["hideMobile", "hideIncome", "hideCompany", "hidePhotos", "isPremium", "gstVerified", "businessVerified"];
+const adminAgeFields = ["age", "preferredAgeFrom", "preferredAgeTo"];
+const adminCountFields = ["brothersCount", "brothersMarried", "sistersCount", "sistersMarried", "yearsInBusiness", "numberOfEmployees", "numberOfBranches"];
+const adminProfileUpload = profileUpload([
+  { name: "image", maxCount: 1 }, { name: "profilePhotos", maxCount: 10 }, { name: "familyPhotos", maxCount: 10 }, { name: "officePhotos", maxCount: 10 }, { name: "horoscopeFile", maxCount: 1 },
+]);
+function adminUploadData(req, data) {
+  for (const field of ["image", "horoscopeFile"]) if (req.files?.[field]?.[0]) data[field] = req.files[field][0].path;
+  const photos = {};
+  for (const field of ["profilePhotos", "familyPhotos", "officePhotos"]) if (req.files?.[field]?.length) photos[field] = req.files[field].map(file => file.path);
+  return photos;
+}
 function memberInput(body) {
   const data = {};
   for (const field of adminMemberFields) {
     if (body[field] === undefined) continue;
-    if (field === "isPremium") {
-      if (typeof body[field] !== "boolean") throw new Error("Invalid membership value");
-      data[field] = body[field];
-    } else if (field === "age") {
+    if (adminBooleanFields.includes(field)) {
+      if (![true, false, "true", "false"].includes(body[field])) throw new Error("Invalid privacy or membership value");
+      data[field] = body[field] === true || body[field] === "true";
+    } else if (adminAgeFields.includes(field) || adminCountFields.includes(field)) {
       if (body[field] === "" || body[field] === null) data[field] = null;
       else {
         const age = Number(body[field]);
-        if (!Number.isInteger(age) || age < 18 || age > 100) throw new Error("Age must be between 18 and 100");
+        if (adminAgeFields.includes(field) && (!Number.isInteger(age) || age < 18 || age > 100)) throw new Error("Age must be between 18 and 100");
+        if (adminCountFields.includes(field) && (!Number.isInteger(age) || age < 0)) throw new Error("Invalid count: enter a non-negative whole number");
         data[field] = age;
       }
     } else {
@@ -172,29 +192,37 @@ function memberInput(body) {
   }
   if (!data.name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email || "")) throw new Error("Name and a valid email address are required");
   data.email = data.email.toLowerCase();
+  if (data.preferredAgeFrom != null && data.preferredAgeTo != null && data.preferredAgeFrom > data.preferredAgeTo) throw new Error("Invalid preferred age range");
+  for (const [count, married] of [["brothersCount", "brothersMarried"], ["sistersCount", "sistersMarried"]]) {
+    if (data[count] != null && data[married] != null && data[married] > data[count]) throw new Error("Invalid married sibling count");
+  }
   return data;
 }
 function adminMemberError(res, error) {
   const expected = error.name === "ValidationError" || error.name === "CastError" || error.code === 11000 || error.message.startsWith("Age must") || error.message.startsWith("Invalid") || error.message.startsWith("Name and");
   res.status(expected ? 400 : 500).json({ error: expected ? error.code === 11000 ? "This email address is already registered" : error.message : "Unable to save member. Please try again." });
 }
-app.post("/api/admin/members", authenticateToken, requireAdmin, async (req, res) => {
+app.post("/api/admin/members", authenticateToken, requireAdmin, adminProfileUpload, async (req, res) => {
   try {
     const data = memberInput(req.body);
     if (typeof req.body.password !== "string" || req.body.password.length < 8) return res.status(400).json({ error: "Password must contain at least 8 characters" });
     if (await User.exists({ email: data.email })) return res.status(409).json({ error: "This email address is already registered" });
-    const user = await User.create({ ...data, role: "user", password: await bcrypt.hash(req.body.password, 10) });
+    const photos = adminUploadData(req, data);
+    const user = await User.create({ ...data, ...photos, role: "user", password: await bcrypt.hash(req.body.password, 10) });
     const result = user.toObject();
     delete result.password;
     res.status(201).json(result);
   } catch (error) { adminMemberError(res, error); }
 });
-app.put("/api/admin/members/:id", authenticateToken, requireAdmin, async (req, res) => {
+app.put("/api/admin/members/:id", authenticateToken, requireAdmin, adminProfileUpload, async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Invalid member ID" });
     const data = memberInput(req.body);
     if (await User.exists({ email: data.email, _id: { $ne: req.params.id } })) return res.status(409).json({ error: "This email address is already registered" });
-    const user = await User.findOneAndUpdate({ _id: req.params.id, role: "user" }, { $set: data }, { new: true, runValidators: true }).select("-password");
+    const photos = adminUploadData(req, data);
+    const update = { $set: data };
+    if (Object.keys(photos).length) update.$push = Object.fromEntries(Object.entries(photos).map(([field, urls]) => [field, { $each: urls }]));
+    const user = await User.findOneAndUpdate({ _id: req.params.id, role: "user" }, update, { new: true, runValidators: true }).select("-password");
     if (!user) return res.status(404).json({ error: "Member not found or administrator account cannot be edited here" });
     res.json(user);
   } catch (error) { adminMemberError(res, error); }
