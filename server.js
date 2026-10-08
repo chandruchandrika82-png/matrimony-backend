@@ -144,7 +144,8 @@ function requireOwner(paramName) {
 async function requireAdmin(req, res, next) {
   try {
     const account = await User.findById(req.auth.userId).select("role");
-    if (req.auth.role !== "admin" || account?.role !== "admin") {
+    // The database is authoritative; older verified tokens may not contain a role claim.
+    if (account?.role !== "admin") {
       return res.status(403).json({ error: "Administrator access is required" });
     }
     next();
