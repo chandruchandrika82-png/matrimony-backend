@@ -533,6 +533,7 @@ app.get("/api/users", async (req, res) => {
       };
     }
 
+    filter.role = { $ne: "admin" };
     const users = await User.find(filter).select("-password").sort({ createdAt: -1 });
 
     res.json(users);
@@ -549,7 +550,7 @@ app.get("/api/users/:id", async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select("-password");
 
-    if (!user) {
+    if (!user || user.role === "admin") {
       return res.status(404).json({
         error: "User not found",
       });
@@ -878,11 +879,18 @@ app.put("/api/users/:id/report", authenticateToken, async (req, res) => {
    DELETE USER
 ========================= */
 app.delete("/api/users/:id", authenticateToken, requireOwner("id"), async (req, res) => {
-  await Promise.all([
-    User.findByIdAndDelete(req.params.id),
-    Message.deleteMany({ $or: [{ sender: req.params.id }, { receiver: req.params.id }] }),
-  ]);
-  res.json({ message: "Account deleted" });
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Invalid account ID" });
+    const account = await User.findById(req.params.id).select("role");
+    if (!account) return res.status(404).json({ error: "Account not found" });
+    if (account.role === "admin") return res.status(403).json({ error: "Administrator accounts cannot be deleted from the matrimony website" });
+    const deleted = await User.findOneAndDelete({ _id: req.params.id, role: { $ne: "admin" } });
+    if (!deleted) return res.status(403).json({ error: "Account deletion is not permitted" });
+    await Message.deleteMany({ $or: [{ sender: req.params.id }, { receiver: req.params.id }] });
+    res.json({ message: "Account deleted" });
+  } catch {
+    res.status(500).json({ error: "Unable to delete account. Please try again." });
+  }
 });
 
 /* =========================
