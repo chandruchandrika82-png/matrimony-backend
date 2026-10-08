@@ -31,6 +31,8 @@ cloudinary.config({
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
+  "http://localhost:3002",
+  "http://localhost:3004",
   "http://localhost",
   "https://localhost",
   "capacitor://localhost",
@@ -155,6 +157,7 @@ async function requireAdmin(req, res, next) {
 }
 
 const adminMemberFields = [
+  "jobType", "jobCategory", "jobLocation", "jobExperience",
   "name", "email", "mobile", "age", "gender", "dob", "height", "weight", "nativePlace", "currentCity", "district", "state", "country", "maritalStatus", "registerAs",
   "education", "occupationType", "companyName", "annualIncome", "nri", "businessType", "businessCategory", "businessLocation", "businessWebsite", "yearsInBusiness", "numberOfEmployees", "numberOfBranches", "branchLocations", "socialMedia",
   "religion", "caste", "subCaste", "motherTongue", "kuladeivam", "star", "rashi", "lagnam", "gothram", "dosha", "birthTime", "birthPlace", "horoscopeAvailable", "sevvaiDosham", "rahuKethuDosham",

@@ -41,6 +41,10 @@ role: {
     occupationType: String,
 
     companyName: String,
+    jobType: String,
+    jobCategory: String,
+    jobLocation: String,
+    jobExperience: String,
     businessType: String,
     businessCategory: String,
 
