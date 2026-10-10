@@ -232,6 +232,10 @@ app.put("/api/admin/members/:id", authenticateToken, requireAdmin, adminProfileU
     if (await User.exists({ email: data.email, _id: { $ne: req.params.id } })) return res.status(409).json({ error: "This email address is already registered" });
     const photos = adminUploadData(req, data);
     const update = { $set: data };
+    if (req.body.password !== undefined) {
+      if (typeof req.body.password !== "string" || req.body.password.length < 8 || Buffer.byteLength(req.body.password, "utf8") > 72) return res.status(400).json({ error: "Password must be 8 characters or more and at most 72 UTF-8 bytes" });
+      data.password = await bcrypt.hash(req.body.password, 10);
+    }
     if (Object.keys(photos).length) update.$push = Object.fromEntries(Object.entries(photos).map(([field, urls]) => [field, { $each: urls }]));
     const user = await User.findOneAndUpdate(adminMemberQuery(req.params.id), update, { new: true, runValidators: true }).select("-password");
     if (!user) return res.status(404).json({ error: "Member not found or administrator account cannot be edited here" });
