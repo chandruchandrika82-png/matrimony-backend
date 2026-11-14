@@ -17,7 +17,7 @@ const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const app = express();
 
 const defaultBranding = { name: "New Varan Kongu Thirumana Matrimony", address: "Namakkal", phone: "9344973982", website: "www.newvaran.com", logo: "" };
-app.get("/api/branding", async (req, res) => {
+app.get("/api/branding", cors(), async (req, res) => {
   try { const saved = await SiteSettings.findOne({ key: "company" }).lean(); res.json({ ...defaultBranding, ...(saved || {}) }); }
   catch { res.json(defaultBranding); }
 });
