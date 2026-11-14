@@ -9,11 +9,18 @@ const multer = require("multer");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const User = require("./models/User");
+const SiteSettings = require("./models/SiteSettings");
 const Message = require("./models/Message");
 const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
 const app = express();
+
+const defaultBranding = { name: "New Varan Kongu Thirumana Matrimony", address: "Namakkal", phone: "9344973982", website: "www.newvaran.com", logo: "" };
+app.get("/api/branding", async (req, res) => {
+  try { const saved = await SiteSettings.findOne({ key: "company" }).lean(); res.json({ ...defaultBranding, ...(saved || {}) }); }
+  catch { res.json(defaultBranding); }
+});
 
 app.get("/test", (req, res) => {
   res.send("SERVER IS WORKING");
@@ -155,6 +162,16 @@ async function requireAdmin(req, res, next) {
     res.status(503).json({ error: "Unable to verify administrator access" });
   }
 }
+
+app.put("/api/admin/branding", authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const fields = ["name", "address", "phone", "website", "logo"];
+    const data = Object.fromEntries(fields.filter(key => typeof req.body[key] === "string").map(key => [key, req.body[key].trim()]));
+    if (!data.name) return res.status(400).json({ error: "Company name is required" });
+    const saved = await SiteSettings.findOneAndUpdate({ key: "company" }, { $set: { key: "company", ...data } }, { upsert: true, new: true, setDefaultsOnInsert: true }).lean();
+    res.json({ ...defaultBranding, ...saved });
+  } catch { res.status(500).json({ error: "Unable to save company settings" }); }
+});
 
 const adminMemberFields = [
   "jobType", "jobCategory", "jobLocation", "jobExperience",
