@@ -158,10 +158,10 @@ async function requireAdmin(req, res, next) {
 
 const adminMemberFields = [
   "jobType", "jobCategory", "jobLocation", "jobExperience",
-  "name", "email", "mobile", "age", "gender", "dob", "height", "weight", "nativePlace", "currentCity", "district", "state", "country", "maritalStatus", "registerAs",
+  "name", "email", "mobile", "age", "gender", "dob", "height", "weight", "colour", "bloodGroup", "applyingDate", "reportExpiryDate", "nativePlace", "currentCity", "district", "state", "country", "maritalStatus", "registerAs",
   "education", "occupationType", "companyName", "annualIncome", "nri", "businessType", "businessCategory", "businessLocation", "businessWebsite", "yearsInBusiness", "numberOfEmployees", "numberOfBranches", "branchLocations", "socialMedia",
-  "religion", "caste", "subCaste", "motherTongue", "kuladeivam", "star", "rashi", "lagnam", "gothram", "dosha", "birthTime", "birthPlace", "horoscopeAvailable", "sevvaiDosham", "rahuKethuDosham",
-  "fatherName", "fatherOccupation", "motherName", "motherOccupation", "brothersCount", "brothersMarried", "sistersCount", "sistersMarried", "familyType", "familyStatus",
+  "religion", "caste", "subCaste", "motherTongue", "kuladeivam", "star", "rashi", "lagnam", "tamilDate", "gothram", "dosha", "birthTime", "birthPlace", "horoscopeAvailable", "sevvaiDosham", "rahuKethuDosham",
+  "fatherName", "fatherOccupation", "fatherNative", "motherName", "motherOccupation", "motherNative", "familyIncome", "brothersCount", "brothersMarried", "sistersCount", "sistersMarried", "familyType", "familyStatus",
   "preferredAgeFrom", "preferredAgeTo", "preferredHeight", "preferredEducation", "preferredOccupation", "preferredReligion", "preferredCaste", "preferredLocation", "preferredRashi", "preferredStar", "acceptSevvaiDosham", "horoscopeMatchingRequired", "expectations",
   "landAcres", "landValue", "house", "vehicle", "otherAssets", "address", "profileVisibility", "hideMobile", "hideIncome", "hideCompany", "hidePhotos", "isPremium", "gstVerified", "businessVerified",
 ];

@@ -30,6 +30,10 @@ role: {
 
     height: String,
     weight: String,
+    colour: String,
+    bloodGroup: String,
+    applyingDate: String,
+    reportExpiryDate: String,
 
     maritalStatus: String,
 
@@ -81,6 +85,7 @@ role: {
     star: String,
 
     lagnam: String,
+    tamilDate: String,
     gothram: String,
     dosha: String,
 
@@ -99,9 +104,12 @@ role: {
     // ==========================
     fatherName: String,
     fatherOccupation: String,
+    fatherNative: String,
 
     motherName: String,
     motherOccupation: String,
+    motherNative: String,
+    familyIncome: String,
 
     brothersCount: Number,
     brothersMarried: Number,
