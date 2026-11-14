@@ -63,7 +63,8 @@ app.use(cors({
 
 app.options("*", cors());
 
-app.use(express.json());
+// Branding logo data URLs can be larger than the default 100 KB JSON limit.
+app.use(express.json({ limit: "5mb" }));
 app.use("/uploads", express.static("uploads"));
 
 /* =========================
